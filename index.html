@@ -82,7 +82,7 @@
 <nav class="mobile-nav" aria-label="Mobile navigation"><button class="active" data-view="home"><span class="ico">⌂</span><span>Home</span></button><button data-view="discover"><span class="ico">⌕</span><span>Explore</span></button><button data-action="create"><span class="ico">⊕</span><span>Create</span></button><button data-view="reels"><span class="ico">▷</span><span>Reels</span></button><button data-view="profile"><span class="ico">◉</span><span>Profile</span></button></nav>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 id="modalTitle">Create a post</h2><p id="modalDescription">Share a thought with your NEXA community.</p><form id="createForm"><textarea id="postText" placeholder="What's on your mind?" maxlength="500" required></textarea><div class="modal-row"><button type="button" class="secondary" data-action="closeModal">Cancel</button><button class="primary" type="submit">Publish preview</button></div></form></div></div>
 
-<div class="modal-backdrop" id="authBackdrop" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="modal"><h2 id="authTitle">Welcome to NEXA</h2><p id="authDescription">Sign in or create your NEXA account.</p><form id="authForm"><input id="authUsername" type="text" placeholder="Username (for new account)" minlength="3" maxlength="30" autocomplete="username" style="display:none"><input id="authEmail" type="email" placeholder="Email address" autocomplete="email" required><input id="authPassword" type="password" placeholder="Password (minimum 8 characters)" minlength="8" autocomplete="current-password" required><div class="modal-row"><button type="button" class="secondary" id="authModeToggle">Create account</button><button class="primary" type="submit" id="authSubmit">Sign in</button></div><button type="button" class="secondary" id="authClose" style="width:100%;margin-top:10px">Close</button><p id="authFeedback" role="status" aria-live="polite" style="margin:12px 0 0"></p></form></div></div>
+<div class="modal-backdrop" id="authBackdrop" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="modal"><h2 id="authTitle">Welcome to NEXA</h2><p id="authDescription">Sign in or create your NEXA account.</p><form id="authForm"><input id="authUsername" type="text" placeholder="Username (for new account)" minlength="3" maxlength="30" autocomplete="username" style="display:none"><input id="authEmail" type="email" placeholder="Email address" autocomplete="email" required><input id="authPassword" type="password" placeholder="Password (minimum 8 characters)" minlength="8" autocomplete="current-password" required><div class="modal-row"><button type="button" class="secondary" id="authModeToggle">Create account</button><button class="primary" type="submit" id="authSubmit">Sign in</button></div><button type="button" class="secondary" id="authResend" style="display:none;width:100%;margin-top:10px">Resend confirmation email</button><button type="button" class="secondary" id="authClose" style="width:100%;margin-top:10px">Close</button><p id="authFeedback" role="status" aria-live="polite" style="margin:12px 0 0"></p></form></div></div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -130,6 +130,7 @@ document.getElementById('searchInput').addEventListener('input',function(){const
   const submit = document.getElementById("authSubmit");
   const toggle = document.getElementById("authModeToggle");
   const feedback = document.getElementById("authFeedback");
+  const resend = document.getElementById("authResend");
   const open = document.getElementById("authOpen");
   let mode = "signin";
   function setMode(next) {
@@ -142,6 +143,7 @@ document.getElementById('searchInput').addEventListener('input',function(){const
     password.autocomplete = signup ? "new-password" : "current-password";
     submit.textContent = signup ? "Create account" : "Sign in";
     toggle.textContent = signup ? "I have an account" : "Create account";
+    resend.style.display = signup ? "block" : "none";
     feedback.textContent = "";
   }
   function showAuth() { backdrop.classList.add("open"); setMode("signin"); }
@@ -170,6 +172,29 @@ document.getElementById('searchInput').addEventListener('input',function(){const
     } else showAuth();
   });
   toggle.addEventListener("click", () => setMode(mode === "signin" ? "signup" : "signin"));
+  resend.addEventListener("click", async () => {
+    const address = email.value.trim();
+    if (!address) {
+      feedback.textContent = "Enter your email address first.";
+      email.focus();
+      return;
+    }
+    resend.disabled = true;
+    feedback.textContent = "Sending a fresh confirmation email…";
+    try {
+      const { error } = await authClient.auth.resend({
+        type: "signup",
+        email: address,
+        options: { emailRedirectTo: "https://nexa-social-psi.vercel.app/" }
+      });
+      if (error) throw error;
+      feedback.textContent = "If this account can receive a confirmation, a fresh email has been requested. Check your inbox and spam folder.";
+    } catch (err) {
+      feedback.textContent = err.message || "Could not resend the confirmation email. Please try again.";
+    } finally {
+      resend.disabled = false;
+    }
+  });
   document.getElementById("authClose").addEventListener("click", hideAuth);
   backdrop.addEventListener("click", e => { if (e.target === backdrop) hideAuth(); });
   form.addEventListener("submit", async e => {
