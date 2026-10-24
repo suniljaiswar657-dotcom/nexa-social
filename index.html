@@ -30,7 +30,7 @@
 <div class="side-bottom">NEXA PREVIEW · v0.1<br>Made for the next generation.</div>
 </aside>
 <main class="main">
-<header class="topbar"><div><div class="eyebrow">YOUR WORLD, REIMAGINED</div><h1 id="pageTitle">Your feed</h1></div><button class="icon-btn" data-action="notifications" aria-label="Notifications">♧</button></header>
+<header class="topbar"><div><div class="eyebrow">YOUR WORLD, REIMAGINED</div><h1 id="pageTitle">Your feed</h1></div><div style="display:flex;gap:8px;align-items:center"><button class="secondary" id="authOpen" style="padding:10px 13px">Sign in</button><button class="icon-btn" data-action="notifications" aria-label="Notifications">♧</button></div></header>
 <section class="view active" id="view-home">
 <div class="stories" aria-label="Stories">
 <button class="story add" data-action="create"><span class="avatar-ring"><span class="avatar">＋</span></span><span>Your story</span></button>
@@ -81,7 +81,11 @@
 </div>
 <nav class="mobile-nav" aria-label="Mobile navigation"><button class="active" data-view="home"><span class="ico">⌂</span><span>Home</span></button><button data-view="discover"><span class="ico">⌕</span><span>Explore</span></button><button data-action="create"><span class="ico">⊕</span><span>Create</span></button><button data-view="reels"><span class="ico">▷</span><span>Reels</span></button><button data-view="profile"><span class="ico">◉</span><span>Profile</span></button></nav>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 id="modalTitle">Create a post</h2><p id="modalDescription">Share a thought with your NEXA community.</p><form id="createForm"><textarea id="postText" placeholder="What's on your mind?" maxlength="500" required></textarea><div class="modal-row"><button type="button" class="secondary" data-action="closeModal">Cancel</button><button class="primary" type="submit">Publish preview</button></div></form></div></div>
+
+<div class="modal-backdrop" id="authBackdrop" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="modal"><h2 id="authTitle">Welcome to NEXA</h2><p id="authDescription">Sign in or create your NEXA account.</p><form id="authForm"><input id="authUsername" type="text" placeholder="Username (for new account)" minlength="3" maxlength="30" autocomplete="username" style="display:none"><input id="authEmail" type="email" placeholder="Email address" autocomplete="email" required><input id="authPassword" type="password" placeholder="Password (minimum 8 characters)" minlength="8" autocomplete="current-password" required><div class="modal-row"><button type="button" class="secondary" id="authModeToggle">Create account</button><button class="primary" type="submit" id="authSubmit">Sign in</button></div><button type="button" class="secondary" id="authClose" style="width:100%;margin-top:10px">Close</button><p id="authFeedback" role="status" aria-live="polite" style="margin:12px 0 0"></p></form></div></div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 const titles={home:"Your feed",discover:"Discover",reels:"Reels",messages:"Messages",profile:"Your profile"};
@@ -112,5 +116,95 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 document.getElementById('searchInput').addEventListener('input',function(){const q=this.value.trim().toLowerCase();document.querySelectorAll('.discover-tile').forEach(tile=>{tile.style.display=(!q||((tile.dataset.search||'')+' '+tile.textContent).toLowerCase().includes(q))?'':'none'})});
 })();
 </script>
+
+<script>
+(function(){
+  const SUPABASE_URL = "https://lktokraifmrbrpybghje.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_unlvSm35J1_WHBSM6B7CIA_FHlJdjYd";
+  const authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const backdrop = document.getElementById("authBackdrop");
+  const form = document.getElementById("authForm");
+  const username = document.getElementById("authUsername");
+  const email = document.getElementById("authEmail");
+  const password = document.getElementById("authPassword");
+  const submit = document.getElementById("authSubmit");
+  const toggle = document.getElementById("authModeToggle");
+  const feedback = document.getElementById("authFeedback");
+  const open = document.getElementById("authOpen");
+  let mode = "signin";
+  function setMode(next) {
+    mode = next;
+    const signup = mode === "signup";
+    document.getElementById("authTitle").textContent = signup ? "Create your NEXA account" : "Welcome back";
+    document.getElementById("authDescription").textContent = signup ? "Join NEXA with your email and a secure password." : "Sign in to continue to your NEXA account.";
+    username.style.display = signup ? "block" : "none";
+    username.required = signup;
+    password.autocomplete = signup ? "new-password" : "current-password";
+    submit.textContent = signup ? "Create account" : "Sign in";
+    toggle.textContent = signup ? "I have an account" : "Create account";
+    feedback.textContent = "";
+  }
+  function showAuth() { backdrop.classList.add("open"); setMode("signin"); }
+  function hideAuth() { backdrop.classList.remove("open"); }
+  function updateAuthUI(user) {
+    open.textContent = user ? "Sign out" : "Sign in";
+    open.setAttribute("aria-label", user ? "Sign out" : "Sign in");
+    if (user) {
+      const meta = user.user_metadata || {};
+      const display = meta.display_name || (user.email || "NEXA user").split("@")[0];
+      document.querySelectorAll(".profile-mini .who strong").forEach(n => n.textContent = display);
+      document.querySelectorAll(".profile-mini .who span").forEach(n => n.textContent = "@" + (meta.username || display.toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24)));
+      const header = document.querySelector(".profile-header");
+      if (header) {
+        header.querySelector("h2").textContent = display;
+        header.querySelector("p").textContent = "@" + (meta.username || display.toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24)) + " · NEXA member";
+      }
+    }
+  }
+  open.addEventListener("click", async () => {
+    const { data } = await authClient.auth.getSession();
+    if (data.session) {
+      const { error } = await authClient.auth.signOut();
+      feedback.textContent = error ? error.message : "";
+      if (!error) { updateAuthUI(null); open.textContent = "Sign in"; }
+    } else showAuth();
+  });
+  toggle.addEventListener("click", () => setMode(mode === "signin" ? "signup" : "signin"));
+  document.getElementById("authClose").addEventListener("click", hideAuth);
+  backdrop.addEventListener("click", e => { if (e.target === backdrop) hideAuth(); });
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    feedback.textContent = mode === "signup" ? "Creating account…" : "Signing in…";
+    submit.disabled = true;
+    try {
+      let result;
+      if (mode === "signup") {
+        const cleanUsername = username.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+        if (cleanUsername.length < 3) throw new Error("Username must be at least 3 letters or numbers.");
+        result = await authClient.auth.signUp({
+          email: email.value.trim(),
+          password: password.value,
+          options: { data: { username: cleanUsername, display_name: cleanUsername } }
+        });
+      } else {
+        result = await authClient.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
+      }
+      if (result.error) throw result.error;
+      if (mode === "signup" && !result.data.session) {
+        feedback.textContent = "Account request created. Check your email to confirm, then sign in.";
+      } else {
+        feedback.textContent = "Success! Your NEXA account is connected.";
+        updateAuthUI(result.data.user || result.data.session?.user || null);
+        setTimeout(hideAuth, 700);
+      }
+    } catch (err) {
+      feedback.textContent = err.message || "Could not complete sign-in. Please try again.";
+    } finally { submit.disabled = false; }
+  });
+  authClient.auth.onAuthStateChange((_event, session) => updateAuthUI(session?.user || null));
+  authClient.auth.getSession().then(({data}) => updateAuthUI(data.session?.user || null));
+})();
+</script>
+
 </body>
 </html>
