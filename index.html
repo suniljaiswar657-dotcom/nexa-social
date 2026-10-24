@@ -245,7 +245,7 @@ document.getElementById('searchInput').addEventListener('input',function(){const
         const {error:saveError}=await authClient.from("profiles").upsert({id:user.id,username:usernameValue,display_name:displayValue,bio:bioValue,avatar_url:avatarValue||null,updated_at:new Date().toISOString()},{onConflict:"id"});
         if(saveError){msg.textContent=saveError.code==="23505"?"That username is already taken. Choose another.":saveError.message;btn.disabled=false;return;}
         await authClient.auth.updateUser({data:{username:usernameValue,display_name:displayValue,avatar_url:avatarValue||null}});
-        profileLoadUserId=null; await loadProfile(user); close(); toast("Profile saved");
+        profileLoadUserId=null; await loadProfile(user); close(); const notice=document.getElementById("toast"); if(notice){notice.textContent="Profile saved";notice.classList.add("show");setTimeout(()=>notice.classList.remove("show"),2300);}
       });
     });
   }
