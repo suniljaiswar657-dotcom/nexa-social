@@ -70,7 +70,7 @@
 <div class="reel-card"><img id="reelImage" alt="Short video preview: cinematic mountain scene" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop"><div class="reel-overlay"><strong>@arjun.fx</strong><p>POV: you finally take that trip 🌄</p><span class="muted">#travel #cinematic #nexa</span></div><div class="reel-side"><button data-action="reelLike" aria-label="Like reel">♡</button><button data-action="comment" aria-label="Comment">♧</button><button data-action="share" aria-label="Share reel">↗</button><button data-action="nextReel" aria-label="Next reel">↓</button></div></div><p class="muted" style="text-align:center;font-size:12px">Interactive reel preview · sample content, not a hosted video</p>
 </section>
 <section class="view" id="view-messages"><div class="panel"><div class="panel-title">Messages <span class="muted">Preview</span></div><div class="suggestion"><img class="avatar" alt="" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"><div class="who"><strong>maya.jpg</strong><span>That shot looks amazing ✨</span></div><span class="muted">2m</span></div><div class="suggestion"><img class="avatar" alt="" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces"><div class="who"><strong>arjun.fx</strong><span>Sent you a post</span></div><span class="muted">18m</span></div><div class="suggestion"><img class="avatar" alt="" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop&crop=faces"><div class="who"><strong>noor.creates</strong><span>Let's collaborate!</span></div><span class="muted">1h</span></div><p class="muted" style="font-size:12px">Messaging is a visual demo. Real accounts and private messages need a backend.</p></div></section>
-<section class="view" id="view-profile"><div class="profile-cover"></div><div class="profile-header"><img class="avatar" alt="Profile avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180&h=180&fit=crop&crop=faces"><div><h2>Shiva <span style="color:var(--red)">✦</span></h2><p>@your.nexa · Creator</p></div></div><div class="profile-stats"><div><strong id="profilePosts">12</strong><span>Posts</span></div><div><strong>8.4K</strong><span>Followers</span></div><div><strong>620</strong><span>Following</span></div></div><div class="profile-bio">Building what's next. Sharing ideas, creativity & the journey. 🚀<br><span class="muted">AI · Creators · Community</span><button class="primary" data-action="editProfile">Edit profile</button></div><div class="grid-discover"><button class="discover-tile"><img alt="Mountain post thumbnail" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&auto=format&fit=crop"></button><button class="discover-tile"><img alt="Architecture post thumbnail" src="https://images.unsplash.com/photo-1511818966892-d7d671e672a2?w=400&auto=format&fit=crop"></button></div></section>
+<section class="view" id="view-profile"><div class="profile-cover"></div><div class="profile-header"><img id="profileAvatar" class="avatar" alt="Profile avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180&h=180&fit=crop&crop=faces"><div><h2 id="profileDisplayName">Your profile <span style="color:var(--red)">✦</span></h2><p id="profileHandle">@username · NEXA member</p></div></div><div class="profile-stats"><div><strong id="profilePosts">0</strong><span>Posts</span></div><div><strong id="profileFollowers">0</strong><span>Followers</span></div><div><strong id="profileFollowing">0</strong><span>Following</span></div></div><div class="profile-bio"><div id="profileBioText">Add a bio to tell your community about you.</div><span id="profileTopics" class="muted">NEXA · Creators · Community</span><button class="primary" data-action="editProfile">Edit profile</button></div><div id="profilePostGrid" class="grid-discover"><div class="empty-state" style="grid-column:1/-1">Sign in to see your posts.</div></div></section>
 </main>
 <aside class="rightbar">
 <div class="profile-mini"><img class="avatar" alt="" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces"><div class="who"><strong>Shiva</strong><span>@your.nexa</span></div><button class="text-btn" data-view="profile">Profile</button></div>
@@ -148,6 +148,107 @@ document.getElementById('searchInput').addEventListener('input',function(){const
   }
   function showAuth() { backdrop.classList.add("open"); setMode("signin"); }
   function hideAuth() { backdrop.classList.remove("open"); }
+  let profileLoadUserId = null;
+  function displayCount(n) { return Number(n || 0).toLocaleString("en-IN"); }
+  function safeAvatar(url) {
+    return url && /^https:\/\//i.test(url) ? url : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180&h=180&fit=crop&crop=faces";
+  }
+  async function loadProfile(user) {
+    if (!user) {
+      profileLoadUserId = null;
+      document.getElementById("profileDisplayName").textContent = "Your profile";
+      document.getElementById("profileHandle").textContent = "@username · Sign in to continue";
+      document.getElementById("profileAvatar").src = safeAvatar("");
+      document.getElementById("profilePosts").textContent = "0";
+      document.getElementById("profileFollowers").textContent = "0";
+      document.getElementById("profileFollowing").textContent = "0";
+      document.getElementById("profileBioText").textContent = "Sign in and add a bio to tell your community about you.";
+      document.getElementById("profilePostGrid").innerHTML = '<div class="empty-state" style="grid-column:1/-1">Your real posts will appear here.</div>';
+      return;
+    }
+    if (profileLoadUserId === user.id) return;
+    profileLoadUserId = user.id;
+    const fallbackName = (user.user_metadata?.display_name || user.email?.split("@")[0] || "NEXA user").slice(0,60);
+    const fallbackUsername = user.user_metadata?.username || fallbackName.toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24) || "member";
+    let profile = { id:user.id, username:fallbackUsername, display_name:fallbackName, bio:"", avatar_url:null };
+    const { data: existing, error: readError } = await authClient.from("profiles").select("id,username,display_name,bio,avatar_url").eq("id",user.id).maybeSingle();
+    if (readError) console.warn("NEXA profile read:", readError.message);
+    if (existing) profile = {...profile,...existing};
+    else {
+      const { data: created, error: createError } = await authClient.from("profiles").upsert({
+        id:user.id, username:fallbackUsername.slice(0,30), display_name:fallbackName, bio:"", avatar_url:user.user_metadata?.avatar_url || null
+      }, {onConflict:"id"}).select("id,username,display_name,bio,avatar_url").maybeSingle();
+      if (created) profile = {...profile,...created};
+      if (createError) console.warn("NEXA profile create:", createError.message);
+    }
+    if (profileLoadUserId !== user.id) return;
+    const name = profile.display_name || profile.username || fallbackName;
+    document.getElementById("profileDisplayName").textContent = name;
+    document.getElementById("profileHandle").textContent = "@" + (profile.username || fallbackUsername) + " · NEXA member";
+    document.getElementById("profileAvatar").src = safeAvatar(profile.avatar_url || user.user_metadata?.avatar_url);
+    document.getElementById("profileBioText").textContent = profile.bio || "Add a bio to tell your community about you.";
+    document.querySelectorAll(".profile-mini .avatar").forEach(img => img.src = safeAvatar(profile.avatar_url || user.user_metadata?.avatar_url));
+    document.querySelectorAll(".profile-mini .who strong").forEach(n => n.textContent = name);
+    document.querySelectorAll(".profile-mini .who span").forEach(n => n.textContent = "@" + (profile.username || fallbackUsername));
+    const [postsResult, followersResult, followingResult] = await Promise.all([
+      authClient.from("posts").select("id,caption,media_url,media_type,created_at").eq("user_id",user.id).order("created_at",{ascending:false}),
+      authClient.from("follows").select("follower_id",{count:"exact",head:true}).eq("following_id",user.id),
+      authClient.from("follows").select("following_id",{count:"exact",head:true}).eq("follower_id",user.id)
+    ]);
+    document.getElementById("profilePosts").textContent = displayCount(postsResult.data?.length || 0);
+    document.getElementById("profileFollowers").textContent = displayCount(followersResult.count || 0);
+    document.getElementById("profileFollowing").textContent = displayCount(followingResult.count || 0);
+    const grid = document.getElementById("profilePostGrid");
+    grid.replaceChildren();
+    if (postsResult.error) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Could not load posts yet. Check profile/post access policies.</div>';
+    } else if (!postsResult.data?.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><strong>No posts yet</strong>Your real NEXA posts will appear here when you publish one.</div>';
+    } else {
+      postsResult.data.forEach(post => {
+        const tile = document.createElement("div"); tile.className = "discover-tile";
+        if (post.media_url && /^https:\/\//i.test(post.media_url)) {
+          const img = document.createElement("img"); img.src = post.media_url; img.alt = "Your NEXA post"; img.loading = "lazy"; tile.append(img);
+        } else {
+          tile.style.padding = "18px"; tile.style.minHeight = "110px";
+          const caption = document.createElement("span"); caption.style.position = "static"; caption.style.padding = "0"; caption.style.background = "none"; caption.textContent = post.caption || "Text post"; tile.append(caption);
+        }
+        grid.append(tile);
+      });
+    }
+  }
+  function openEditProfile() {
+    authClient.auth.getUser().then(async ({data,error}) => {
+      if (error || !data.user) { showAuth(); return; }
+      const user = data.user;
+      const {data: p} = await authClient.from("profiles").select("username,display_name,bio,avatar_url").eq("id",user.id).maybeSingle();
+      const meta = user.user_metadata || {};
+      const backdrop = document.createElement("div"); backdrop.className = "modal-backdrop open"; backdrop.id = "profileEditBackdrop";
+      const modal = document.createElement("form"); modal.className = "modal"; modal.id = "profileEditForm";
+      modal.innerHTML = '<h2>Edit profile</h2><p>Changes save to your NEXA profile.</p><label style="display:block;font-size:12px;margin-bottom:6px">Username</label><input name="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" placeholder="username"><label style="display:block;font-size:12px;margin-bottom:6px">Display name</label><input name="display_name" maxlength="60" placeholder="Your name"><label style="display:block;font-size:12px;margin-bottom:6px">Bio</label><textarea name="bio" maxlength="300" placeholder="Tell people about yourself"></textarea><label style="display:block;font-size:12px;margin-bottom:6px">Avatar image URL (HTTPS)</label><input name="avatar_url" type="url" placeholder="https://..."><p id="profileEditFeedback" role="status"></p><div class="modal-row"><button type="button" class="secondary" id="profileEditCancel">Cancel</button><button class="primary" type="submit">Save profile</button></div>';
+      backdrop.append(modal); document.body.append(backdrop);
+      modal.elements.username.value = p?.username || meta.username || (user.email || "member").split("@")[0].replace(/[^a-z0-9_]/gi,"").slice(0,24);
+      modal.elements.display_name.value = p?.display_name || meta.display_name || "";
+      modal.elements.bio.value = p?.bio || "";
+      modal.elements.avatar_url.value = p?.avatar_url || meta.avatar_url || "";
+      function close(){backdrop.remove();}
+      backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
+      modal.querySelector("#profileEditCancel").addEventListener("click",close);
+      modal.addEventListener("submit",async e=>{
+        e.preventDefault(); const btn=modal.querySelector('button[type="submit"]'); const msg=modal.querySelector("#profileEditFeedback");
+        const usernameValue=modal.elements.username.value.trim().toLowerCase();
+        const displayValue=modal.elements.display_name.value.trim();
+        const bioValue=modal.elements.bio.value.trim();
+        const avatarValue=modal.elements.avatar_url.value.trim();
+        if(avatarValue && !/^https:\/\//i.test(avatarValue)){msg.textContent="Avatar URL must start with https://";return;}
+        btn.disabled=true;msg.textContent="Saving…";
+        const {error:saveError}=await authClient.from("profiles").upsert({id:user.id,username:usernameValue,display_name:displayValue,bio:bioValue,avatar_url:avatarValue||null,updated_at:new Date().toISOString()},{onConflict:"id"});
+        if(saveError){msg.textContent=saveError.code==="23505"?"That username is already taken. Choose another.":saveError.message;btn.disabled=false;return;}
+        await authClient.auth.updateUser({data:{username:usernameValue,display_name:displayValue,avatar_url:avatarValue||null}});
+        profileLoadUserId=null; await loadProfile(user); close(); toast("Profile saved");
+      });
+    });
+  }
   function updateAuthUI(user) {
     open.textContent = user ? "Sign out" : "Sign in";
     open.setAttribute("aria-label", user ? "Sign out" : "Sign in");
@@ -156,12 +257,8 @@ document.getElementById('searchInput').addEventListener('input',function(){const
       const display = meta.display_name || (user.email || "NEXA user").split("@")[0];
       document.querySelectorAll(".profile-mini .who strong").forEach(n => n.textContent = display);
       document.querySelectorAll(".profile-mini .who span").forEach(n => n.textContent = "@" + (meta.username || display.toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24)));
-      const header = document.querySelector(".profile-header");
-      if (header) {
-        header.querySelector("h2").textContent = display;
-        header.querySelector("p").textContent = "@" + (meta.username || display.toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24)) + " · NEXA member";
-      }
     }
+    loadProfile(user);
   }
   open.addEventListener("click", async () => {
     const { data } = await authClient.auth.getSession();
@@ -226,6 +323,7 @@ document.getElementById('searchInput').addEventListener('input',function(){const
       feedback.textContent = err.message || "Could not complete sign-in. Please try again.";
     } finally { submit.disabled = false; }
   });
+  document.addEventListener("click", e => { const edit = e.target.closest('[data-action="editProfile"]'); if (edit) { e.preventDefault(); openEditProfile(); } });
   authClient.auth.onAuthStateChange((_event, session) => updateAuthUI(session?.user || null));
   authClient.auth.getSession().then(({data}) => updateAuthUI(data.session?.user || null));
 })();
