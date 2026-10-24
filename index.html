@@ -184,7 +184,7 @@ document.getElementById('searchInput').addEventListener('input',function(){const
         result = await authClient.auth.signUp({
           email: email.value.trim(),
           password: password.value,
-          options: { data: { username: cleanUsername, display_name: cleanUsername } }
+          options: { data: { username: cleanUsername, display_name: cleanUsername }, emailRedirectTo: "https://nexa-social-psi.vercel.app/" }
         });
       } else {
         result = await authClient.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
